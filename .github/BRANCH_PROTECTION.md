@@ -47,9 +47,20 @@
 
 設定が正しく動作していることを確認するため：
 
-1. テストが失敗するPRを作成
-2. マージボタンが無効になっていることを確認
-3. テストが成功するとマージが可能になることを確認
+1. **テストの実行確認**:
+   ```bash
+   vendor/bin/phpunit
+   ```
+   すべてのテストがパスすることを確認
+
+2. **GitHub Actions の動作確認**:
+   - リポジトリの「Actions」タブでワークフローが正常に実行されることを確認
+   - PRを作成した際に「Run Tests / run-tests」チェックが実行されることを確認
+
+3. **ブランチプロテクションの動作確認**:
+   - テストが失敗するPRを作成
+   - マージボタンが無効になっていることを確認
+   - テストが成功するとマージが可能になることを確認
 
 ## 重要な注意事項
 
@@ -57,7 +68,7 @@
 - **Status Check名の一致**: GitHub ActionsのジョブID (`run-tests`) とワークフロー名 (`Run Tests`) を正確に指定してください
 - **既存のPR**: 設定後、既存のPRも新しいルールの対象になります
 
-## トラブルシューティング
+### トラブルシューティング
 
 ### Status Checkが表示されない場合
 1. ワークフローが少なくとも1回は実行されていることを確認
@@ -68,3 +79,32 @@
 1. すべてのRequired status checksが緑色になっていることを確認
 2. コンフリクトが解決されていることを確認
 3. レビューが承認されていることを確認（設定している場合）
+
+## GitHub API による設定（上級者向け）
+
+GitHub APIを使用してブランチプロテクションルールを設定することも可能です：
+
+```bash
+# 必要な権限を持つPersonal Access Tokenを設定
+export GITHUB_TOKEN="your_token_here"
+
+# ブランチプロテクションルールを設定
+curl -X PUT \
+  -H "Authorization: token $GITHUB_TOKEN" \
+  -H "Accept: application/vnd.github.v3+json" \
+  https://api.github.com/repos/megane9988/multi-poster/branches/main/protection \
+  -d '{
+    "required_status_checks": {
+      "strict": true,
+      "contexts": ["Run Tests / run-tests"]
+    },
+    "enforce_admins": false,
+    "required_pull_request_reviews": {
+      "required_approving_review_count": 1,
+      "dismiss_stale_reviews": true
+    },
+    "restrictions": null
+  }'
+```
+
+**注意**: この方法にはリポジトリへの管理者権限とGitHub Personal Access Tokenが必要です。
