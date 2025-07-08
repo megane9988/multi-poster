@@ -30,14 +30,14 @@ class MultiPoster {
 
 	private function getBaseUrl() {
 		$protocol = isset( $_SERVER['HTTPS'] ) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
-		$host     = $_SERVER['HTTP_HOST'];
-		$path     = dirname( $_SERVER['REQUEST_URI'] );
+		$host     = $_SERVER['HTTP_HOST'] ?? 'localhost';
+		$path     = dirname( $_SERVER['REQUEST_URI'] ?? '/post' );
 		return $protocol . '://' . $host . $path;
 	}
 
 	public function handleRequest() {
 		try {
-			if ( $_SERVER['REQUEST_METHOD'] !== 'POST' ) {
+			if ( ($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST' ) {
 				throw new Exception( 'POSTメソッドのみ対応しています' );
 			}
 

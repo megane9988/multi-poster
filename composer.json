@@ -1,0 +1,21 @@
+{
+    "name": "multi-poster/test",
+    "description": "Multi-poster PHP application with unit tests",
+    "type": "project",
+    "require": {
+        "php": "^8.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^9.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
+        }
+    }
+}
