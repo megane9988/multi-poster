@@ -55,6 +55,7 @@ DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/YOUR_DISCORD_WEBHOOK_URL
 - 環境変数の読み込み
 - ベースURLの生成
 - Webhook URL未設定時の処理
+- mainブランチにプッシュされたタイミングで、テストを実施
 
 ## ファイル構成
 
