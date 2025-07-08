@@ -57,10 +57,28 @@ DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/YOUR_DISCORD_WEBHOOK_URL
 - Webhook URL未設定時の処理
 - mainブランチにプッシュされたタイミングで、テストを実施する
 
+### CI/CD
+
+GitHub Actionsにより、プルリクエスト作成時とmainブランチへのプッシュ時に自動でテストが実行されます。
+
+#### ブランチプロテクション
+
+mainブランチはブランチプロテクションルールにより保護されており、以下の条件を満たさないとマージできません：
+
+- テストが成功すること（`Run Tests` ワークフローの成功）
+- プルリクエストの作成が必要
+- コードレビューの承認（設定により）
+
+詳細な設定手順は [`.github/BRANCH_PROTECTION.md`](.github/BRANCH_PROTECTION.md) を参照してください。
+
 ## ファイル構成
 
 ```
 /
+├── .github/
+│   ├── workflows/
+│   │   └── test.yml          # GitHub Actions テストワークフロー
+│   └── BRANCH_PROTECTION.md  # ブランチプロテクション設定手順
 ├── form.html             # 投稿フォーム
 ├── post.php              # PHP処理ファイル
 ├── uploads/              # 画像アップロード先
