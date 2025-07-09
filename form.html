@@ -100,6 +100,25 @@
         border-radius: 4px;
         display: none;
       }
+      .checkbox-group {
+        display: flex;
+        gap: 20px;
+        margin-top: 8px;
+      }
+      .checkbox-label {
+        display: flex;
+        align-items: center;
+        font-weight: normal;
+        margin-bottom: 0;
+        cursor: pointer;
+      }
+      .checkbox-label input[type="checkbox"] {
+        margin-right: 8px;
+        width: auto;
+        padding: 0;
+        border: none;
+        background: none;
+      }
       .success {
         background-color: #d4edda;
         color: #155724;
@@ -141,6 +160,20 @@
           </div>
           <input type="file" id="image" name="image" accept="image/*" />
           <div class="image-preview" id="imagePreview"></div>
+        </div>
+
+        <div class="form-group">
+          <label>投稿先:</label>
+          <div class="checkbox-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="slack" name="services[]" value="slack" checked>
+              Slack
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="discord" name="services[]" value="discord" checked>
+              Discord
+            </label>
+          </div>
         </div>
 
         <button type="submit" class="submit-btn" id="submitBtn">
@@ -223,6 +256,15 @@
       form.addEventListener("submit", function (e) {
         e.preventDefault();
 
+        // 投稿先の選択チェック
+        const selectedServices = Array.from(document.querySelectorAll('input[name="services[]"]:checked'));
+        if (selectedServices.length === 0) {
+          statusMessage.className = "status-message error";
+          statusMessage.textContent = "少なくとも1つの投稿先を選択してください。";
+          statusMessage.style.display = "block";
+          return;
+        }
+
         const formData = new FormData(form);
 
         // 送信ボタンを無効化
@@ -246,6 +288,10 @@
               // フォームをリセット
               form.reset();
               imagePreview.style.display = "none";
+              
+              // チェックボックスを再びデフォルト状態に戻す
+              document.getElementById("slack").checked = true;
+              document.getElementById("discord").checked = true;
             } else {
               statusMessage.className = "status-message error";
               statusMessage.textContent = "エラー: " + data.message;

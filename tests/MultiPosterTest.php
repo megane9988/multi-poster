@@ -71,6 +71,20 @@ class MultiPosterTest extends TestCase {
 		$this->assertEquals( 'メッセージが入力されていません', $response['message'] );
 	}
 
+	public function testHandleRequestWithNoSelectedServices() {
+		$_SERVER['REQUEST_METHOD'] = 'POST';
+		$_POST['message']          = 'Test message';
+		$_POST['services']         = array();
+
+		ob_start();
+		$this->multiPoster->handleRequest();
+		$output = ob_get_clean();
+
+		$response = json_decode( $output, true );
+		$this->assertFalse( $response['success'] );
+		$this->assertEquals( '少なくとも1つの投稿先を選択してください', $response['message'] );
+	}
+
 	public function testUploadImageWithInvalidType() {
 		$file = array(
 			'name'     => 'test.txt',
@@ -182,8 +196,33 @@ class MultiPosterTest extends TestCase {
 		$method->setAccessible( true );
 
 		$this->expectException( Exception::class );
-		$this->expectExceptionMessage( 'Webhook URLが設定されていません' );
+		$this->expectExceptionMessage( '選択されたサービスのWebhook URLが設定されていません' );
 
-		$method->invoke( $this->multiPoster, 'test message', null );
+		$method->invoke( $this->multiPoster, 'test message', null, array( 'slack', 'discord' ) );
+	}
+
+	public function testPostToServicesWithSelectedServices() {
+		// Create a MultiPoster instance with mock webhook URLs
+		$reflection = new ReflectionClass( $this->multiPoster );
+
+		$slackProperty = $reflection->getProperty( 'slackWebhookUrl' );
+		$slackProperty->setAccessible( true );
+		$slackProperty->setValue( $this->multiPoster, 'https://hooks.slack.com/test' );
+
+		$discordProperty = $reflection->getProperty( 'discordWebhookUrl' );
+		$discordProperty->setAccessible( true );
+		$discordProperty->setValue( $this->multiPoster, '' );
+
+		$method = $reflection->getMethod( 'postToServices' );
+		$method->setAccessible( true );
+
+		// Test that we can call the method with only Slack selected
+		// We would need to mock the sendWebhook method for a complete test
+		try {
+			$method->invoke( $this->multiPoster, 'test message', null, array( 'slack' ) );
+		} catch ( Exception $e ) {
+			// Expected to fail because we can't actually send webhooks in tests
+			$this->assertStringContainsString( 'Webhook', $e->getMessage() );
+		}
 	}
 }

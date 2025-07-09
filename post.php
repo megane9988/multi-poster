@@ -46,12 +46,17 @@ class MultiPoster {
 				throw new Exception( 'メッセージが入力されていません' );
 			}
 
+			$selectedServices = $_POST['services'] ?? array();
+			if ( empty( $selectedServices ) ) {
+				throw new Exception( '少なくとも1つの投稿先を選択してください' );
+			}
+
 			$imageUrl = null;
 			if ( isset( $_FILES['image'] ) && $_FILES['image']['error'] === UPLOAD_ERR_OK ) {
 				$imageUrl = $this->uploadImage( $_FILES['image'] );
 			}
 
-			$results = $this->postToServices( $message, $imageUrl );
+			$results = $this->postToServices( $message, $imageUrl, $selectedServices );
 
 			echo json_encode(
 				array(
@@ -98,19 +103,24 @@ class MultiPoster {
 		return $this->baseUrl . '/uploads/' . $filename;
 	}
 
-	private function postToServices( $message, $imageUrl ) {
+	private function postToServices( $message, $imageUrl, $selectedServices = array() ) {
 		$results = array();
 
-		if ( ! empty( $this->slackWebhookUrl ) ) {
+		// デフォルトですべてのサービスに投稿（下位互換性のため）
+		if ( empty( $selectedServices ) ) {
+			$selectedServices = array( 'slack', 'discord' );
+		}
+
+		if ( in_array( 'slack', $selectedServices ) && ! empty( $this->slackWebhookUrl ) ) {
 			$results['slack'] = $this->postToSlack( $message, $imageUrl );
 		}
 
-		if ( ! empty( $this->discordWebhookUrl ) ) {
+		if ( in_array( 'discord', $selectedServices ) && ! empty( $this->discordWebhookUrl ) ) {
 			$results['discord'] = $this->postToDiscord( $message, $imageUrl );
 		}
 
 		if ( empty( $results ) ) {
-			throw new Exception( 'Webhook URLが設定されていません' );
+			throw new Exception( '選択されたサービスのWebhook URLが設定されていません' );
 		}
 
 		return $results;
