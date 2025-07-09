@@ -1,15 +1,20 @@
 <?php
-header( 'Content-Type: application/json' );
+// JSONヘッダーの設定（直接実行の場合のみ）
+if (basename($_SERVER['PHP_SELF']) === 'post.php') {
+	header( 'Content-Type: application/json' );
+}
 
 class MultiPoster {
 	private $slackWebhookUrl;
 	private $discordWebhookUrl;
 	private $uploadsDir;
 	private $baseUrl;
+	private $scheduledPostsFile;
 
 	public function __construct() {
 		$this->loadEnv();
 		$this->uploadsDir        = __DIR__ . '/uploads/';
+		$this->scheduledPostsFile = __DIR__ . '/scheduled_posts.json';
 		$this->baseUrl           = $this->getBaseUrl();
 		$this->slackWebhookUrl   = $_ENV['SLACK_WEBHOOK_URL'] ?? '';
 		$this->discordWebhookUrl = $_ENV['DISCORD_WEBHOOK_URL'] ?? '';
@@ -56,15 +61,39 @@ class MultiPoster {
 				$imageUrl = $this->uploadImage( $_FILES['image'] );
 			}
 
-			$results = $this->postToServices( $message, $imageUrl, $selectedServices );
+			$postTiming = $_POST['post_timing'] ?? 'immediate';
+			$scheduleTime = $_POST['schedule_time'] ?? '';
 
-			echo json_encode(
-				array(
-					'success' => true,
-					'message' => '投稿が完了しました',
-					'results' => $results,
-				)
-			);
+			if ( $postTiming === 'scheduled' ) {
+				if ( empty( $scheduleTime ) ) {
+					throw new Exception( '予約投稿の日時を選択してください' );
+				}
+
+				$scheduleDateTime = new DateTime( $scheduleTime );
+				$now = new DateTime();
+				if ( $scheduleDateTime <= $now ) {
+					throw new Exception( '予約投稿の日時は現在時刻より未来を選択してください' );
+				}
+
+				$this->schedulePost( $message, $imageUrl, $selectedServices, $scheduleDateTime );
+				
+				echo json_encode(
+					array(
+						'success' => true,
+						'message' => '予約投稿が設定されました（投稿予定: ' . $scheduleDateTime->format('Y-m-d H:i') . '）',
+					)
+				);
+			} else {
+				$results = $this->postToServices( $message, $imageUrl, $selectedServices );
+
+				echo json_encode(
+					array(
+						'success' => true,
+						'message' => '投稿が完了しました',
+						'results' => $results,
+					)
+				);
+			}
 
 		} catch ( Exception $e ) {
 			echo json_encode(
@@ -196,8 +225,79 @@ class MultiPoster {
 			throw new Exception( 'Webhook送信失敗: HTTP ' . $httpCode );
 		}
 	}
+
+	private function schedulePost( $message, $imageUrl, $selectedServices, $scheduleDateTime ) {
+		$scheduledPosts = $this->loadScheduledPosts();
+		
+		$postData = array(
+			'id' => uniqid(),
+			'message' => $message,
+			'image_url' => $imageUrl,
+			'services' => $selectedServices,
+			'schedule_time' => $scheduleDateTime->format('Y-m-d H:i:s'),
+			'created_at' => date('Y-m-d H:i:s'),
+			'status' => 'pending'
+		);
+
+		$scheduledPosts[] = $postData;
+		$this->saveScheduledPosts( $scheduledPosts );
+	}
+
+	private function loadScheduledPosts() {
+		if ( ! file_exists( $this->scheduledPostsFile ) ) {
+			return array();
+		}
+
+		$content = file_get_contents( $this->scheduledPostsFile );
+		if ( $content === false ) {
+			return array();
+		}
+
+		$posts = json_decode( $content, true );
+		return $posts === null ? array() : $posts;
+	}
+
+	public function getScheduledPosts() {
+		return $this->loadScheduledPosts();
+	}
+
+	private function saveScheduledPosts( $posts ) {
+		$content = json_encode( $posts, JSON_PRETTY_PRINT );
+		if ( file_put_contents( $this->scheduledPostsFile, $content ) === false ) {
+			throw new Exception( '予約投稿データの保存に失敗しました' );
+		}
+	}
+
+	public function processPendingPosts() {
+		$scheduledPosts = $this->loadScheduledPosts();
+		$now = new DateTime();
+		$updatedPosts = array();
+
+		foreach ( $scheduledPosts as $post ) {
+			if ( $post['status'] === 'pending' ) {
+				$scheduleTime = new DateTime( $post['schedule_time'] );
+				
+				if ( $scheduleTime <= $now ) {
+					try {
+						$this->postToServices( $post['message'], $post['image_url'], $post['services'] );
+						$post['status'] = 'completed';
+						$post['executed_at'] = date('Y-m-d H:i:s');
+					} catch ( Exception $e ) {
+						$post['status'] = 'failed';
+						$post['error'] = $e->getMessage();
+						$post['failed_at'] = date('Y-m-d H:i:s');
+					}
+				}
+			}
+			$updatedPosts[] = $post;
+		}
+
+		$this->saveScheduledPosts( $updatedPosts );
+	}
 }
 
-// リクエスト処理
-$multiPoster = new MultiPoster();
-$multiPoster->handleRequest();
+// リクエスト処理（直接実行の場合のみ）
+if (basename($_SERVER['PHP_SELF']) === 'post.php') {
+	$multiPoster = new MultiPoster();
+	$multiPoster->handleRequest();
+}
