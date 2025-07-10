@@ -225,4 +225,57 @@ class MultiPosterTest extends TestCase {
 			$this->assertStringContainsString( 'Webhook', $e->getMessage() );
 		}
 	}
+
+	public function testSchedulePost() {
+		$_SERVER['REQUEST_METHOD'] = 'POST';
+		$_POST['message'] = 'Test scheduled message';
+		$_POST['services'] = array( 'slack' );
+		$_POST['post_timing'] = 'scheduled';
+		$_POST['schedule_time'] = date('Y-m-d H:i', strtotime('+1 hour'));
+
+		ob_start();
+		$this->multiPoster->handleRequest();
+		$output = ob_get_clean();
+
+		$response = json_decode( $output, true );
+		$this->assertTrue( $response['success'] );
+		$this->assertStringContainsString( '予約投稿が設定されました', $response['message'] );
+	}
+
+	public function testSchedulePostWithPastTime() {
+		$_SERVER['REQUEST_METHOD'] = 'POST';
+		$_POST['message'] = 'Test scheduled message';
+		$_POST['services'] = array( 'slack' );
+		$_POST['post_timing'] = 'scheduled';
+		$_POST['schedule_time'] = date('Y-m-d H:i', strtotime('-1 hour'));
+
+		ob_start();
+		$this->multiPoster->handleRequest();
+		$output = ob_get_clean();
+
+		$response = json_decode( $output, true );
+		$this->assertFalse( $response['success'] );
+		$this->assertEquals( '予約投稿の日時は現在時刻より未来を選択してください', $response['message'] );
+	}
+
+	public function testSchedulePostWithoutTime() {
+		$_SERVER['REQUEST_METHOD'] = 'POST';
+		$_POST['message'] = 'Test scheduled message';
+		$_POST['services'] = array( 'slack' );
+		$_POST['post_timing'] = 'scheduled';
+		$_POST['schedule_time'] = '';
+
+		ob_start();
+		$this->multiPoster->handleRequest();
+		$output = ob_get_clean();
+
+		$response = json_decode( $output, true );
+		$this->assertFalse( $response['success'] );
+		$this->assertEquals( '予約投稿の日時を選択してください', $response['message'] );
+	}
+
+	public function testGetScheduledPosts() {
+		$posts = $this->multiPoster->getScheduledPosts();
+		$this->assertIsArray( $posts );
+	}
 }
